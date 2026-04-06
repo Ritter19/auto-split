@@ -1,65 +1,71 @@
 (function () {
-  console.log("Auto Split Input Filler v4 Loaded");
+  console.log("Auto Split Input Filler v6 Loaded");
 
   document.addEventListener("paste", function (e) {
     const target = e.target;
 
     if (!isValidInput(target)) return;
 
-    const pastedData = (e.clipboardData || window.clipboardData).getData(
-      "text",
-    );
+    // safer clipboard access
+    const pastedData = e.clipboardData?.getData("text") || "";
     if (!pastedData) return;
 
     const digits = pastedData.replace(/\D/g, "");
 
-    // Only process valid IDs
-    if (digits.length < 6) return;
+    // Always save history (Group + Individual)
+    const type = digits.length >= 6 ? "Individual" : "Group";
+    safeSaveHistory(`${pastedData} - ${type}`);
 
-    // CHECK TOGGLE FIRST
-    chrome.storage.local.get(["enabled", "history"], function (result) {
-      // If OFF → allow normal paste
-      if (result.enabled === false) {
-        return;
-      }
+    // SAFE chrome.storage access (no crash)
+    try {
+      chrome.storage.local.get(["enabled"], function (result) {
+        // If extension context is invalid → exit silently
+        if (chrome.runtime?.lastError) {
+          console.warn("Extension context invalidated");
+          return;
+        }
 
-      // ONLY NOW block default paste
-      e.preventDefault();
+        // Toggle OFF → allow normal paste
+        if (result.enabled === false) return;
 
-      const inputs = getNearbyInputs(target);
-      if (!inputs.length) return;
+        // Group → do not auto split
+        if (digits.length < 6) return;
 
-      let index = 0;
-      let lastFilled = null;
+        // Now override paste
+        e.preventDefault();
 
-      for (let i = 0; i < inputs.length; i++) {
-        const input = inputs[i];
+        const inputs = getNearbyInputs(target);
+        if (!inputs.length) return;
 
-        // detect max length (fallback = 4)
-        let maxLen = input.maxLength;
-        if (!maxLen || maxLen <= 0) maxLen = 4;
+        let index = 0;
+        let lastFilled = null;
 
-        const chunk = digits.slice(index, index + maxLen);
-        if (!chunk) break;
+        for (let i = 0; i < inputs.length; i++) {
+          const input = inputs[i];
 
-        // simulate typing (for masked inputs)
-        typeIntoInput(input, chunk);
+          let maxLen = input.maxLength;
+          if (!maxLen || maxLen <= 0) maxLen = 4;
 
-        lastFilled = input;
-        index += maxLen;
-      }
+          const chunk = digits.slice(index, index + maxLen);
+          if (!chunk) break;
 
-      if (lastFilled) lastFilled.focus();
+          typeIntoInput(input, chunk);
 
-      saveHistory(pastedData, result.history || []);
-    });
+          lastFilled = input;
+          index += maxLen;
+        }
+
+        if (lastFilled) lastFilled.focus();
+      });
+    } catch (err) {
+      console.warn("Safe fail:", err);
+    }
   });
 
-  // simulate real typing (fix for React/masked inputs)
+  // simulate typing (works with masked / React inputs)
   function typeIntoInput(input, text) {
     input.focus();
 
-    // clear existing value
     input.value = "";
     input.dispatchEvent(new Event("input", { bubbles: true }));
 
@@ -112,10 +118,22 @@
     return inputs.slice(startIndex, startIndex + 6);
   }
 
-  function saveHistory(value, history) {
-    history.unshift(value);
-    history = history.slice(0, 3);
+  // SAFE HISTORY SAVE (no crash if context invalid)
+  function safeSaveHistory(entry) {
+    try {
+      chrome.storage.local.get(["history"], function (result) {
+        if (chrome.runtime?.lastError) return;
 
-    chrome.storage.local.set({ history });
+        let history = result.history || [];
+
+        history = history.filter((item) => item !== entry);
+        history.unshift(entry);
+        history = history.slice(0, 3);
+
+        chrome.storage.local.set({ history });
+      });
+    } catch (err) {
+      console.warn("History save failed safely:", err);
+    }
   }
 })();
