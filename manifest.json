@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Auto Split Input Filler",
+  "version": "2.0",
+  "description": "Auto split membership input across fields.",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://www.bupainternational.com/intermediaryworld/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.bupainternational.com/intermediaryworld/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup/popup.html"
+  }
+}
