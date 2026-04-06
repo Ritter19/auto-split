@@ -6,7 +6,9 @@
 
     if (!isValidInput(target)) return;
 
-    const pastedData = (e.clipboardData || window.clipboardData).getData("text");
+    const pastedData = (e.clipboardData || window.clipboardData).getData(
+      "text",
+    );
     if (!pastedData) return;
 
     const digits = pastedData.replace(/\D/g, "");
@@ -14,15 +16,14 @@
     // Only process valid IDs
     if (digits.length < 6) return;
 
-    // 🔥 CHECK TOGGLE FIRST (IMPORTANT FIX)
+    // CHECK TOGGLE FIRST
     chrome.storage.local.get(["enabled", "history"], function (result) {
-
-      // ❌ If OFF → allow normal paste
+      // If OFF → allow normal paste
       if (result.enabled === false) {
         return;
       }
 
-      // ✅ ONLY NOW block default paste
+      // ONLY NOW block default paste
       e.preventDefault();
 
       const inputs = getNearbyInputs(target);
@@ -41,7 +42,7 @@
         const chunk = digits.slice(index, index + maxLen);
         if (!chunk) break;
 
-        // 🔥 simulate typing (for masked inputs)
+        // simulate typing (for masked inputs)
         typeIntoInput(input, chunk);
 
         lastFilled = input;
@@ -54,7 +55,7 @@
     });
   });
 
-  // 🔥 simulate real typing (fix for React/masked inputs)
+  // simulate real typing (fix for React/masked inputs)
   function typeIntoInput(input, text) {
     input.focus();
 
@@ -63,19 +64,23 @@
     input.dispatchEvent(new Event("input", { bubbles: true }));
 
     for (let char of text) {
-      input.dispatchEvent(new KeyboardEvent("keydown", {
-        key: char,
-        bubbles: true
-      }));
+      input.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: char,
+          bubbles: true,
+        }),
+      );
 
       input.value += char;
 
       input.dispatchEvent(new Event("input", { bubbles: true }));
 
-      input.dispatchEvent(new KeyboardEvent("keyup", {
-        key: char,
-        bubbles: true
-      }));
+      input.dispatchEvent(
+        new KeyboardEvent("keyup", {
+          key: char,
+          bubbles: true,
+        }),
+      );
     }
   }
 
@@ -97,9 +102,8 @@
       ? Array.from(parent.querySelectorAll("input"))
       : Array.from(document.querySelectorAll("input"));
 
-    inputs = inputs.filter(el =>
-      isValidInput(el) &&
-      el.offsetParent !== null
+    inputs = inputs.filter(
+      (el) => isValidInput(el) && el.offsetParent !== null,
     );
 
     const startIndex = inputs.indexOf(startInput);
